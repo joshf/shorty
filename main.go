@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 var urls = map[string]string{}
@@ -42,12 +43,20 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, code)
 }
 
-func hello(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "hello world")
+func redirect(w http.ResponseWriter, r *http.Request) {
+	code := strings.TrimPrefix(r.URL.Path, "/")
+	fmt.Println("looking up", code)
+
+	url, ok := urls[code]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	http.Redirect(w, r, url, 302)
 }
 
 func main() {
-	http.HandleFunc("/", hello)
+	http.HandleFunc("/", redirect)
 	http.HandleFunc("/shorten", shorten)
 	fmt.Println("listening on :8080")
 	http.ListenAndServe(":8080", nil)
