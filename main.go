@@ -1,9 +1,46 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 )
+
+var urls = map[string]string{}
+
+const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+func randomCode(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+type shortenRequest struct {
+	URL string `json:"url"`
+}
+
+func shorten(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "method not allowed", 405)
+		return
+	}
+
+	var req shortenRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "bad json", 400)
+		return
+	}
+
+	code := randomCode(6)
+	urls[code] = req.URL
+	fmt.Println("saved", code, req.URL)
+	fmt.Fprintln(w, code)
+}
 
 func hello(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "hello world")
@@ -11,6 +48,7 @@ func hello(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", hello)
+	http.HandleFunc("/shorten", shorten)
 	fmt.Println("listening on :8080")
 	http.ListenAndServe(":8080", nil)
 }
