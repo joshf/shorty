@@ -40,7 +40,12 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 	code := randomCode(6)
 	urls[code] = req.URL
 	fmt.Println("saved", code, req.URL)
-	fmt.Fprintln(w, code)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"code":      code,
+		"short_url": "http://localhost:8080/" + code,
+	})
 }
 
 func redirect(w http.ResponseWriter, r *http.Request) {
