@@ -36,6 +36,10 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", 400)
 		return
 	}
+	if req.URL == "" {
+		http.Error(w, "url is required", 400)
+		return
+	}
 
 	code := randomCode(6)
 	urls[code] = req.URL
