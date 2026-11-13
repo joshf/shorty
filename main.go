@@ -5,9 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 )
 
-var urls = map[string]string{}
+// maps arent safe to use from multiple goroutines and every request
+// runs in its own goroutine, so lock around them
+var (
+	urls = map[string]string{}
+	mu   sync.Mutex
+)
 
 type shortenRequest struct {
 	URL string `json:"url"`
@@ -35,7 +41,9 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not generate code", 500)
 		return
 	}
+	mu.Lock()
 	urls[code] = req.URL
+	mu.Unlock()
 	fmt.Println("saved", code, req.URL)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -49,7 +57,9 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 	code := strings.TrimPrefix(r.URL.Path, "/")
 	fmt.Println("looking up", code)
 
+	mu.Lock()
 	url, ok := urls[code]
+	mu.Unlock()
 	if !ok {
 		http.NotFound(w, r)
 		return
