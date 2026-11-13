@@ -3,22 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strings"
 )
 
 var urls = map[string]string{}
-
-const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-func randomCode(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
 
 type shortenRequest struct {
 	URL string `json:"url"`
@@ -41,7 +30,11 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := randomCode(6)
+	code, err := generateCode(6)
+	if err != nil {
+		http.Error(w, "could not generate code", 500)
+		return
+	}
 	urls[code] = req.URL
 	fmt.Println("saved", code, req.URL)
 
