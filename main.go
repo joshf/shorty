@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 )
 
@@ -20,11 +19,6 @@ type shortenRequest struct {
 }
 
 func shorten(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "method not allowed", 405)
-		return
-	}
-
 	var req shortenRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -54,7 +48,7 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func redirect(w http.ResponseWriter, r *http.Request) {
-	code := strings.TrimPrefix(r.URL.Path, "/")
+	code := r.PathValue("code")
 	fmt.Println("looking up", code)
 
 	mu.Lock()
@@ -68,8 +62,11 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", redirect)
-	http.HandleFunc("/shorten", shorten)
+	mux := http.NewServeMux()
+	// go 1.22 lets you put the method and wildcards in the pattern
+	mux.HandleFunc("POST /shorten", shorten)
+	mux.HandleFunc("GET /{code}", redirect)
+
 	fmt.Println("listening on :8080")
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", mux)
 }
