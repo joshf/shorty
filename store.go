@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
+
+var ErrNotFound = errors.New("link not found")
 
 type Link struct {
 	Code      string    `json:"code"`
@@ -11,22 +14,36 @@ type Link struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// maps arent safe to use from multiple goroutines and every request
-// runs in its own goroutine, so lock around them
-var (
-	links = map[string]Link{}
-	mu    sync.Mutex
-)
-
-func saveLink(l Link) {
-	mu.Lock()
-	defer mu.Unlock()
-	links[l.Code] = l
+// Store is an interface so I can swap in a real database later
+type Store interface {
+	Save(link Link) error
+	Get(code string) (Link, error)
 }
 
-func getLink(code string) (Link, bool) {
-	mu.Lock()
-	defer mu.Unlock()
-	l, ok := links[code]
-	return l, ok
+type MemoryStore struct {
+	mu    sync.Mutex
+	links map[string]Link
+}
+
+func NewMemoryStore() *MemoryStore {
+	// have to make() the map, writing to a nil map panics
+	return &MemoryStore{links: make(map[string]Link)}
+}
+
+func (s *MemoryStore) Save(link Link) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.links[link.Code] = link
+	return nil
+}
+
+func (s *MemoryStore) Get(code string) (Link, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	link, ok := s.links[code]
+	if !ok {
+		return Link{}, ErrNotFound
+	}
+	return link, nil
 }

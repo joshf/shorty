@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var store Store = NewMemoryStore()
+
 type shortenRequest struct {
 	URL string `json:"url"`
 }
@@ -28,7 +30,11 @@ func shorten(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not generate code", 500)
 		return
 	}
-	saveLink(Link{Code: code, URL: req.URL, CreatedAt: time.Now()})
+	err = store.Save(Link{Code: code, URL: req.URL, CreatedAt: time.Now()})
+	if err != nil {
+		http.Error(w, "could not save link", 500)
+		return
+	}
 	fmt.Println("saved", code, req.URL)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -42,9 +48,13 @@ func redirect(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
 	fmt.Println("looking up", code)
 
-	link, ok := getLink(code)
-	if !ok {
+	link, err := store.Get(code)
+	if err == ErrNotFound {
 		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, "lookup failed", 500)
 		return
 	}
 	http.Redirect(w, r, link.URL, 302)
