@@ -58,6 +58,8 @@ func (s *MemoryStore) IncrementHits(code string) error {
 	if !ok {
 		return ErrNotFound
 	}
+	// link is a copy, not a reference into the map, so it has to be put back
 	link.Hits++
+	s.links[code] = link
 	return nil
 }
