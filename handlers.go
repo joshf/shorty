@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -25,30 +26,28 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		URL string `json:"url"`
 	}
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		http.Error(w, "bad json", 400)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 	if req.URL == "" {
-		http.Error(w, "url is required", 400)
+		writeError(w, http.StatusBadRequest, "url is required")
 		return
 	}
 
 	code, err := generateCode(6)
 	if err != nil {
-		http.Error(w, "could not generate code", 500)
+		writeError(w, http.StatusInternalServerError, "could not generate code")
 		return
 	}
 	err = s.store.Save(Link{Code: code, URL: req.URL, CreatedAt: time.Now()})
 	if err != nil {
-		http.Error(w, "could not save link", 500)
+		writeError(w, http.StatusInternalServerError, "could not save link")
 		return
 	}
 	fmt.Println("saved", code, req.URL)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusCreated, map[string]string{
 		"code":      code,
 		"short_url": s.baseURL + "/" + code,
 	})
@@ -64,8 +63,21 @@ func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, "lookup failed", 500)
+		writeError(w, http.StatusInternalServerError, "lookup failed")
 		return
 	}
-	http.Redirect(w, r, link.URL, 302)
+	http.Redirect(w, r, link.URL, http.StatusFound)
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	// header has to be set before WriteHeader or it gets ignored
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("write json: %v", err)
+	}
+}
+
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }
