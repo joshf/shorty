@@ -19,6 +19,7 @@ func (s *Server) routes() http.Handler {
 	// go 1.22 lets you put the method and wildcards in the pattern
 	mux.HandleFunc("POST /shorten", s.handleShorten)
 	mux.HandleFunc("GET /{code}", s.handleRedirect)
+	mux.HandleFunc("GET /{code}/stats", s.handleStats)
 	return mux
 }
 
@@ -66,7 +67,25 @@ func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "lookup failed")
 		return
 	}
+
+	// dont fail the redirect just because the counter didnt work
+	if err := s.store.IncrementHits(code); err != nil {
+		log.Printf("increment hits for %s: %v", code, err)
+	}
 	http.Redirect(w, r, link.URL, http.StatusFound)
+}
+
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	link, err := s.store.Get(r.PathValue("code"))
+	if err == ErrNotFound {
+		writeError(w, http.StatusNotFound, "link not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "lookup failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, link)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

@@ -11,6 +11,7 @@ var ErrNotFound = errors.New("link not found")
 type Link struct {
 	Code      string    `json:"code"`
 	URL       string    `json:"url"`
+	Hits      int       `json:"hits"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -18,6 +19,7 @@ type Link struct {
 type Store interface {
 	Save(link Link) error
 	Get(code string) (Link, error)
+	IncrementHits(code string) error
 }
 
 type MemoryStore struct {
@@ -46,4 +48,16 @@ func (s *MemoryStore) Get(code string) (Link, error) {
 		return Link{}, ErrNotFound
 	}
 	return link, nil
+}
+
+func (s *MemoryStore) IncrementHits(code string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	link, ok := s.links[code]
+	if !ok {
+		return ErrNotFound
+	}
+	link.Hits++
+	return nil
 }
