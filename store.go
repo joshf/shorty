@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-var ErrNotFound = errors.New("link not found")
+var (
+	ErrNotFound = errors.New("link not found")
+	ErrExists   = errors.New("code already exists")
+)
 
 type Link struct {
 	Code      string    `json:"code"`
@@ -35,6 +38,10 @@ func NewMemoryStore() *MemoryStore {
 func (s *MemoryStore) Save(link Link) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if _, ok := s.links[link.Code]; ok {
+		return ErrExists
+	}
 	s.links[link.Code] = link
 	return nil
 }

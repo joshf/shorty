@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,22 +40,32 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := generateCode(6)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not generate code")
-		return
-	}
-	err = s.store.Save(Link{Code: code, URL: u.String(), CreatedAt: time.Now()})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not save link")
-		return
-	}
-	fmt.Println("saved", code, u.String())
+	// codes are random so they could collide, try a few times
+	for range 5 {
+		code, err := generateCode(6)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not generate code")
+			return
+		}
 
-	writeJSON(w, http.StatusCreated, map[string]string{
-		"code":      code,
-		"short_url": s.baseURL + "/" + code,
-	})
+		err = s.store.Save(Link{Code: code, URL: u.String(), CreatedAt: time.Now()})
+		if errors.Is(err, ErrExists) {
+			continue
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not save link")
+			return
+		}
+		fmt.Println("saved", code, u.String())
+
+		writeJSON(w, http.StatusCreated, map[string]string{
+			"code":      code,
+			"short_url": s.baseURL + "/" + code,
+		})
+		return
+	}
+
+	writeError(w, http.StatusInternalServerError, "could not find a free code")
 }
 
 func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +73,7 @@ func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("looking up", code)
 
 	link, err := s.store.Get(code)
-	if err == ErrNotFound {
+	if errors.Is(err, ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -80,7 +91,7 @@ func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	link, err := s.store.Get(r.PathValue("code"))
-	if err == ErrNotFound {
+	if errors.Is(err, ErrNotFound) {
 		writeError(w, http.StatusNotFound, "link not found")
 		return
 	}
