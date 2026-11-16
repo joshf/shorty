@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -31,8 +32,10 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if req.URL == "" {
-		writeError(w, http.StatusBadRequest, "url is required")
+
+	u, err := url.ParseRequestURI(req.URL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		writeError(w, http.StatusBadRequest, "url must be an absolute http(s) URL")
 		return
 	}
 
@@ -41,12 +44,12 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "could not generate code")
 		return
 	}
-	err = s.store.Save(Link{Code: code, URL: req.URL, CreatedAt: time.Now()})
+	err = s.store.Save(Link{Code: code, URL: u.String(), CreatedAt: time.Now()})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not save link")
 		return
 	}
-	fmt.Println("saved", code, req.URL)
+	fmt.Println("saved", code, u.String())
 
 	writeJSON(w, http.StatusCreated, map[string]string{
 		"code":      code,
