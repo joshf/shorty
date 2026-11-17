@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -56,7 +55,6 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "could not save link")
 			return
 		}
-		fmt.Println("saved", code, u.String())
 
 		writeJSON(w, http.StatusCreated, map[string]string{
 			"code":      code,
@@ -70,7 +68,6 @@ func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleRedirect(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
-	fmt.Println("looking up", code)
 
 	link, err := s.store.Get(code)
 	if errors.Is(err, ErrNotFound) {
