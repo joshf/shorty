@@ -67,3 +67,13 @@ func TestShortenRejectsBadInput(t *testing.T) {
 		})
 	}
 }
+
+func TestUnknownCodeIs404(t *testing.T) {
+	h := newTestServer()
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/nope42", nil))
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("got status %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
