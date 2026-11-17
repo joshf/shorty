@@ -8,9 +8,13 @@ import (
 	"testing"
 )
 
-func TestShortenAndRedirect(t *testing.T) {
+func newTestServer() http.Handler {
 	s := &Server{store: NewMemoryStore(), baseURL: "http://test"}
-	h := s.routes()
+	return s.routes()
+}
+
+func TestShortenAndRedirect(t *testing.T) {
+	h := newTestServer()
 
 	req := httptest.NewRequest("POST", "/shorten", strings.NewReader(`{"url":"https://go.dev"}`))
 	rec := httptest.NewRecorder()
@@ -36,5 +40,30 @@ func TestShortenAndRedirect(t *testing.T) {
 	}
 	if loc := rec.Header().Get("Location"); loc != "https://go.dev" {
 		t.Errorf("redirect: got Location %q, want %q", loc, "https://go.dev")
+	}
+}
+
+func TestShortenRejectsBadInput(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"not json", `hello`},
+		{"empty url", `{"url":""}`},
+		{"relative url", `{"url":"/just/a/path"}`},
+		{"wrong scheme", `{"url":"ftp://example.com"}`},
+	}
+
+	h := newTestServer()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/shorten", strings.NewReader(tt.body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("got status %d, want %d", rec.Code, http.StatusBadRequest)
+			}
+		})
 	}
 }
