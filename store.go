@@ -26,7 +26,7 @@ type Store interface {
 }
 
 type MemoryStore struct {
-	mu    sync.Mutex
+	mu    sync.RWMutex // lets reads happen at the same time
 	links map[string]Link
 }
 
@@ -47,8 +47,8 @@ func (s *MemoryStore) Save(link Link) error {
 }
 
 func (s *MemoryStore) Get(code string) (Link, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	link, ok := s.links[code]
 	if !ok {
