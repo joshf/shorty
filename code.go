@@ -11,6 +11,7 @@ func generateCode(n int) (string, error) {
 		return "", err
 	}
 	for i := range b {
+		// modulo is a tiny bit biased but doesnt matter for this
 		b[i] = alphabet[int(b[i])%len(alphabet)]
 	}
 	return string(b), nil
