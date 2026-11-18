@@ -1,19 +1,24 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"time"
 )
 
 func main() {
+	addr := flag.String("addr", ":8080", "address to listen on")
+	baseURL := flag.String("base-url", "http://localhost:8080", "public base URL used in short links")
+	flag.Parse()
+
 	srv := &Server{
 		store:   NewMemoryStore(),
-		baseURL: "http://localhost:8080",
+		baseURL: *baseURL,
 	}
 
-	log.Printf("listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", logRequests(srv.routes())))
+	log.Printf("listening on %s", *addr)
+	log.Fatal(http.ListenAndServe(*addr, logRequests(srv.routes())))
 }
 
 // logRequests is middleware that logs every request and how long it took
