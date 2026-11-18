@@ -25,6 +25,9 @@ func (s *Server) routes() http.Handler {
 }
 
 func (s *Server) handleShorten(w http.ResponseWriter, r *http.Request) {
+	// 1 MiB is way more than any url needs
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	var req struct {
 		URL string `json:"url"`
 	}
